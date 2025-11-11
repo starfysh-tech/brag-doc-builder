@@ -210,7 +210,7 @@ Current timeframe: ${timeframe}
 Collected so far: ${JSON.stringify(collectedData)}`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/claude', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +312,7 @@ CRITICAL FORMATTING RULES:
 Generate ONLY the markdown, no additional commentary.`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/claude', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
