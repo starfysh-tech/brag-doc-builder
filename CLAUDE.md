@@ -3,10 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Brag Doc Builder is a React-based single-page application that helps users create brag documents through conversational AI. The app uses Claude API directly from the browser (no backend) and stores conversation state in URL hash parameters.
+Brag Doc Builder is a React-based single-page application that helps users create brag documents through conversational AI. The app uses Claude API directly from the browser and stores conversation state in URL hash parameters.
 
-## Project Maintenance
-This is a solo-maintained project. Changes should preserve the intentional single-component architecture.
+**Solo-maintained project**: Changes should preserve the intentional single-component architecture.
 
 ## Development Commands
 - `npm run dev` - Start development server on port 3000
@@ -14,99 +13,172 @@ This is a solo-maintained project. Changes should preserve the intentional singl
 - `npm run preview` - Preview production build locally
 - `npm run setup` - Install dependencies and build
 
-## API Key Management
-- API keys stored in backend or hosting platform secrets (e.g., Vercel environment variables)
-- Never commit API keys to the repository
-- Keys accessed via backend proxy or server-side environment variables
-
 ## Tech Stack
 - React 18 with Vite build tool
 - Tailwind CSS for styling
 - Lucide React for icons
-- Direct Claude API integration via browser fetch (no API keys stored in app)
+- Direct Claude API integration via browser fetch (no backend, no authentication)
 
 ## Architecture
 
-### State Management
-The app uses React useState hooks with URL hash-based persistence:
-- Conversation state is compressed and stored in URL hash using btoa/atob encoding
-- State includes: mode, timeframe, messages, conversationState, bragDoc, collectedData
-- URL updates occur when conversationState changes (see App.jsx:87-104)
-
-### Conversation Flow
-1. **Mode Selection** (`conversationState: 'mode'`) - User picks General or Founder mode
-2. **Timeframe Selection** (`conversationState: 'timeframe'`) - Daily, weekly, or sprint
-3. **Collecting** (`conversationState: 'collecting'`) - Conversational interview with Claude
-4. **Generating** (`conversationState: 'generating'`) - Generate brag doc from conversation
-5. **Complete** (`conversationState: 'complete'`) - Display final output with copy/download options
-
-### Claude API Integration
-The app makes direct API calls to `https://api.anthropic.com/v1/messages`:
-- `callClaude()` (App.jsx:122-242) - Handles conversational interview with system prompts
-- `generateBragDoc()` (App.jsx:244-340) - Final generation with structured markdown template
-- Model: `claude-sonnet-4-20250514`
-- System prompts differ by mode (General vs Founder) with specific extraction rules
-
-### File Structure
-**Intentional single-component architecture** - all UI in `App.jsx` (668 lines):
+### Single-Component Pattern
+**All UI lives in `App.jsx` (~668 lines)** - this is intentional:
 - Mode/timeframe selection screens
 - Chat interface with message history
 - Live brag doc preview panel
 - Dark/light mode toggle
 - Share URL and export functionality
-- Do not split into multiple components unless absolutely necessary
+
+**Do not split into multiple components** unless the file exceeds 1000 lines with distinct, decoupled features.
+
+### State Management
+The app uses React useState hooks with URL hash-based persistence:
+- State includes: mode, timeframe, messages, conversationState, bragDoc, collectedData
+- Compressed and stored in URL hash using btoa/atob (App.jsx:5-19)
+- URL updates when conversationState changes (App.jsx:87-104)
+- **Important**: URL hash has size limits (~2KB most browsers) - avoid adding large data to state
+- Malformed hashes fail silently and reset to mode selection (App.jsx:80-82)
+
+**When adding new state fields:**
+1. Add useState at top of component
+2. Update state serialization in useEffect (App.jsx:88-96)
+3. Update decompression logic if needed (App.jsx:65-78)
+4. Keep state flat - no deeply nested objects
+
+### Conversation Flow States
+1. `mode` - User picks General or Founder mode
+2. `timeframe` - Daily, weekly, or sprint
+3. `collecting` - Conversational interview with Claude
+4. `generating` - Generate brag doc from conversation
+5. `complete` - Display final output with copy/download options
+
+### Claude API Integration
+Direct API calls to `https://api.anthropic.com/v1/messages`:
+- `callClaude()` (App.jsx:122-242) - Conversational interview with system prompts
+- `generateBragDoc()` (App.jsx:244-340) - Final markdown generation
+- Model: `claude-sonnet-4-20250514`
+- **No authentication headers** - direct browser-to-API calls
+- System prompts differ by mode (General vs Founder)
+- Conversation ends when Claude says "I have what I need" (App.jsx:229-231)
+
+**Do not add:**
+- API key handling (none needed)
+- Backend proxy (not used)
+- Authentication layers (not needed)
 
 ## Code Style & Conventions
 
-**Note**: This project follows React/JavaScript conventions (camelCase), not snake_case.
-
 ### Naming
-- Use camelCase for variables and functions (JavaScript/React standard)
+- Use camelCase for variables/functions (JavaScript/React standard)
 - Use PascalCase for React components
 - Boolean variables: prefix with `is`, `has`, `should` (e.g., `isLoading`, `hasError`)
 - Event handlers: prefix with `handle` (e.g., `handleSend`, `handleSkip`)
 
-### State Management Patterns
-- All state lives in App.jsx component
-- State updates must preserve URL hash-based persistence
-- When adding state fields, update the state serialization in useEffect at lines 88-96
-- Derive computed values rather than storing redundant state
+**Note**: This project uses camelCase, NOT snake_case.
 
-### Tailwind Usage
-- Order classes: layout → sizing → spacing → colors → typography → effects
-- Dynamic theme classes via template literals (see lines 414-425)
-- Theme colors: slate palette for both dark/light modes with different shades
-- Responsive prefixes: `lg:` for desktop-specific layouts
+### Tailwind Class Ordering
+Order classes: layout → sizing → spacing → colors → typography → effects
+
+Example:
+```jsx
+className="flex-1 overflow-y-auto mb-4 bg-slate-950/50 rounded-xl p-4 border border-slate-800 text-sm text-slate-300"
+```
+
+Dynamic theme classes use template literals (App.jsx:414-425):
+```jsx
+const cardBg = darkMode ? 'bg-slate-900/50' : 'bg-white/80';
+```
 
 ### Component Organization in App.jsx
-- Helper functions (compress, decompress) outside component
-- React hooks at top of component
-- API functions (callClaude, generateBragDoc) after hooks
-- UI event handlers (handleSend, handleSkip, etc.) after API functions
-- Render logic at bottom
+**Strict order:**
+1. Helper functions outside component (compress, decompress)
+2. React hooks at component top
+3. API functions (callClaude, generateBragDoc)
+4. UI event handlers (handleSend, handleSkip, etc.)
+5. Dynamic theme variables (bgGradient, textPrimary, etc.)
+6. Render logic
+
+**Follow this pattern when adding new code.**
+
+### State Update Patterns
+- Always use functional setState for arrays/objects:
+  ```jsx
+  setMessages(prev => [...prev, newMessage]);
+  ```
+- Derive values instead of storing redundant state:
+  ```jsx
+  // Good: derive from existing state
+  const canSend = !isLoading && userInput.trim();
+
+  // Bad: store in separate state
+  const [canSend, setCanSend] = useState(false);
+  ```
 
 ## Error Handling
 
 ### API Failures
-- Failed Claude API calls show: "Sorry, I encountered an error. Please try again." (App.jsx:239-240)
-- No automatic retry logic - users must manually retry
-- Network errors caught in try/catch blocks (App.jsx:238-241, 336-339)
-- Log errors to console for debugging: `console.error('Error calling Claude:', error)`
+- Failed Claude API calls show: "Sorry, I encountered an error. Please try again."
+- No automatic retry logic - users manually retry
+- All network errors caught in try/catch (App.jsx:238-241, 336-339)
+- Log to console: `console.error('Error calling Claude:', error)`
 
 ### State Recovery
-- Malformed URL hash fails silently and starts fresh (App.jsx:80-82)
-- If decompression fails, app resets to mode selection
+- Malformed URL hash fails silently, resets to mode selection
 - No state validation - URL state is trusted if parseable
+- Missing state fields use useState defaults
+
+## Key Constraints
+
+### URL Hash Storage
+- State stored in compressed URL hash (btoa/atob encoding)
+- Size limit ~2KB most browsers, ~64KB Chrome
+- **When adding state fields**: keep data minimal, compression helps but has limits
+- Large conversations may exceed browser limits (no enforcement)
+
+### No Backend
+- Static SPA, no server-side code
+- No API keys, no authentication, no database
+- All data lives client-side only
+- Conversations stored only in URL hash
+
+## Common Patterns
+
+### Adding a New UI Section
+1. Add to render logic at bottom of component
+2. Use existing theme variables (`cardBg`, `textPrimary`, etc.)
+3. Follow Tailwind class ordering
+4. Maintain responsive `lg:` breakpoints for desktop layouts
+
+### Adding New State
+1. Add useState hook at top
+2. Update URL serialization (App.jsx:88-96)
+3. Update URL deserialization (App.jsx:65-78)
+4. Test URL sharing works with new state
+
+### Modifying API Calls
+- System prompts in `callClaude()` differ by mode (General vs Founder)
+- Generation prompts in `generateBragDoc()` create structured markdown
+- Model, max_tokens defined inline - no config file
+- Check trigger phrases (App.jsx:229-231) if changing conversation end logic
+
+## What NOT to Do
+
+- ❌ Do not add API key handling or environment variables
+- ❌ Do not create separate component files (keep single-component architecture)
+- ❌ Do not use snake_case (use camelCase)
+- ❌ Do not add backend/server code
+- ❌ Do not store large objects in state (URL hash size limits)
+- ❌ Do not add useState without updating URL serialization
+- ❌ Do not create new markdown files unless explicitly requested
 
 ## Testing
-- No automated tests - all testing is manual via `npm run dev`
-- Test both modes (General and Founder) across all timeframes
-- Verify conversation flow, state persistence, copy/download, and share URL
-- Test on Chrome, Firefox, and Safari
+Manual testing only via `npm run dev`. See CHECKLIST.md for deployment verification steps.
+
+**Quick test:**
+1. Select mode and timeframe
+2. Complete conversation
+3. Copy share URL
+4. Open URL in new tab → verify state restored
 
 ## Deployment
-This is a static SPA deployable to any web server. See DEPLOYMENT.md for full details.
-- Build outputs to `dist/` directory
-- Requires web server configured for SPA routing (redirect all to index.html)
-- No backend or environment variables needed for production build
-- HTTPS required in production for API calls
+See DEPLOYMENT.md for deployment instructions. This is a static SPA requiring only a web server configured for SPA routing (redirect all to index.html).
