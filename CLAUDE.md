@@ -53,18 +53,24 @@ The app uses React useState hooks with URL hash-based persistence:
 5. `complete` - Display final output with copy/download options
 
 ### Claude API Integration
-Direct API calls to `https://api.anthropic.com/v1/messages`:
+API calls to `https://api.anthropic.com/v1/messages`:
 - `callClaude()` (App.jsx:122-242) - Conversational interview with system prompts
 - `generateBragDoc()` (App.jsx:244-340) - Final markdown generation
 - Model: `claude-sonnet-4-20250514`
-- **No authentication headers** - direct browser-to-API calls
+- **Default**: Direct browser-to-API calls (no authentication headers)
+- **Optional**: Vercel serverless proxy available at `/api/claude` when deployed to Vercel
 - System prompts differ by mode (General vs Founder)
 - Conversation ends when Claude says "I have what I need" (App.jsx:229-231)
 
+**API Proxy:**
+- A Vercel serverless function exists for proxying API calls if needed (CORS restrictions, rate limiting, etc.)
+- Default behavior is direct browser calls
+- When deployed to Vercel, proxy is available but not required
+
 **Do not add:**
-- API key handling (none needed)
-- Backend proxy (not used)
-- Authentication layers (not needed)
+- API key handling in the frontend (none needed for direct calls)
+- Additional proxy implementations (Vercel proxy already exists)
+- Authentication layers in the frontend (not needed)
 
 ## Code Style & Conventions
 
@@ -135,9 +141,10 @@ const cardBg = darkMode ? 'bg-slate-900/50' : 'bg-white/80';
 - **When adding state fields**: keep data minimal, compression helps but has limits
 - Large conversations may exceed browser limits (no enforcement)
 
-### No Backend
-- Static SPA, no server-side code
-- No API keys, no authentication, no database
+### No Backend (Primary Mode)
+- Static SPA, primarily runs with no server-side code
+- Optional Vercel serverless proxy available for API calls
+- No API keys in frontend, no authentication, no database
 - All data lives client-side only
 - Conversations stored only in URL hash
 
@@ -172,13 +179,16 @@ const cardBg = darkMode ? 'bg-slate-900/50' : 'bg-white/80';
 - ❌ Do not create new markdown files unless explicitly requested
 
 ## Testing
-Manual testing only via `npm run dev`. See CHECKLIST.md for deployment verification steps.
+Manual testing only via `npm run dev`.
 
 **Quick test:**
 1. Select mode and timeframe
 2. Complete conversation
 3. Copy share URL
 4. Open URL in new tab → verify state restored
+
+**Deployment verification:**
+See DEPLOYMENT.md "Quick Start" section for full deployment testing checklist.
 
 ## Deployment
 See DEPLOYMENT.md for deployment instructions. This is a static SPA requiring only a web server configured for SPA routing (redirect all to index.html).
